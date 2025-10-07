@@ -8,25 +8,13 @@ output:
 ---
 
 ```{r, echo=FALSE} 
-library(faraway)
-library(dplyr)
 library(tidyverse)
-library(ISLR2)
-library(mgcv)
-library(leaps)
-library(janitor)
-library(sandwich)
-library(lmtest)
-library(ggplot2)
-library(caret)       
-library(boot)     
-library(pROC)         
-library(arm) 
-library(pROC)
-library(DataExplorer)
-library(factoextra)
+library(srvyr)
+library(gssr)
+library(gssrdoc)
 library(haven)
 ```
+
 
 ```{r}
 ess<- read_dta("ESS11.dta")
@@ -46,4 +34,14 @@ ess_small <- ess |>
     country_vs_europe = atchctr - atchctr
   ) |> 
   filter(!is.na(anweight), !is.na(psu), !is.na(stratum))
+```
+
+```{r}
+ess_w <- svydesign(
+  ids = ~psu,
+  strata = ~stratum,
+  weights = ~anweight,
+  data = ess_small,
+  nest = TRUE
+)
 ```
