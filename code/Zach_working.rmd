@@ -7,3 +7,29 @@ output:
     latex_engine: xelatex
 ---
 
+```{r, echo=FALSE} 
+library(faraway)
+library(dplyr)
+library(tidyverse)
+library(ISLR2)
+library(mgcv)
+library(MASS)
+library(leaps)
+library(janitor)
+library(sandwich)
+library(lmtest)
+library(ggplot2)
+library(caret)       
+library(boot)     
+library(pROC)         
+library(arm) 
+library(pROC)
+library(DataExplorer)
+library(factoextra)
+library(haven)
+```
+
+```{r}
+ess<- read_dta("ESS11.dta")
+```
+
