@@ -1,2 +1,2 @@
-# SURV727_Group_Assignment
-Repository for SURV727 Group Assignment
+# GVPT628_Group_Assignment
+Repository for GVPT628 Group Assignment
