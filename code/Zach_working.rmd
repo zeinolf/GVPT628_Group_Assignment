@@ -1,1 +1,9 @@
+---
+title: "SURV628 Group Assignment Code"
+author: "Zach Einolf"
+date: "10/07/2025"
+output:
+  pdf_document:
+    latex_engine: xelatex
+---
 
