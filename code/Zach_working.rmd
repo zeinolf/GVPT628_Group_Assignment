@@ -13,7 +13,6 @@ library(dplyr)
 library(tidyverse)
 library(ISLR2)
 library(mgcv)
-library(MASS)
 library(leaps)
 library(janitor)
 library(sandwich)
@@ -33,3 +32,18 @@ library(haven)
 ess<- read_dta("ESS11.dta")
 ```
 
+```{r}
+ess_small <- ess |> 
+  dplyr::select(idno, atcherp, atchctr, cntry, region, vteurmmb, domicil,
+         psu, stratum, anweight) |> 
+  mutate(
+    atcherp  = as.numeric(atcherp),
+    atchctr = as.numeric(atchctr),
+    cntry = as_factor(cntry),
+    region = as_factor(region),
+    vteurmmb = as_factor(vteurmmb),
+    domicil = as.numeric(domicil),
+    country_vs_europe = atchctr - atchctr
+  ) |> 
+  filter(!is.na(anweight), !is.na(psu), !is.na(stratum))
+```
