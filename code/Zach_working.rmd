@@ -1,5 +1,5 @@
 ---
-title: "SURV628 Group Assignment Code"
+title: "GVPT628 Group Assignment Code"
 author: "Zach Einolf"
 date: "10/07/2025"
 output:
@@ -18,18 +18,15 @@ library(survey)
 
 
 ```{r}
-ess<- read_dta("ESS11.dta")|> 
+ess<- haven::read_dta(unz("ESS11.zip", "ESS11.dta"))|>
   zap_missing()
-
-ess<- haven::read_dta(unz("data/ESS11.zip", "ESS11.dta"))
-
 ```
 
 
-Are European people more emotionally attached “Europe” or to their individual countries of residence?
+**Are European people more emotionally attached “Europe” or to their individual countries of residence?**
 ```{r}
 ess_small <- ess |> 
-  dplyr::select(idno, atcherp, atchctr, cntry, region, vteurmmb, domicil,
+  dplyr::select(agea, polintr, idno, atcherp, atchctr, cntry, region, vteurmmb, domicil,
          psu, stratum, anweight) |> 
   mutate(
     atcherp  = as.numeric(atcherp),
@@ -42,11 +39,6 @@ ess_small <- ess |>
   ) |> 
   filter(!is.na(anweight), !is.na(psu), !is.na(stratum))
 
-```
-
-How does this vary across countries or regions?
-
-```{r}
 ess_w <- svydesign(
   ids = ~psu,
   strata = ~stratum,
@@ -54,7 +46,14 @@ ess_w <- svydesign(
   data = ess_small,
   nest = TRUE
 )
+attach_gap <- svymean(~country_vs_europe, ess_w, na.rm = TRUE)
+attach_gap
 ```
+
+On average, European people are more emotionally attached to their respective countries than Europe as a whole.
+
+
+**How does this vary across countries or regions?**
 
 ```{r}
 by_ctry_gap <- svyby(
@@ -69,56 +68,177 @@ by_ctry_gap <- svyby(
 
 ggplot(by_ctry_gap,
        aes(x = fct_reorder(cntry, country_vs_europe), y = country_vs_europe)) +
-  geom_col() +
+  geom_col(fill="violet") +
   labs(
-    x = NULL,
-    y = "Weighed Mean Difference in Country/Europe attachment",
-    title = "Attachment gap by country (ESS Round 11)"
+    x = "Country",
+    y = "Weighted Mean Attachment Gap (Country − Europe)",
+    title = "Weighted Mean Attachment Gap (Country − Europe) by Country"
   ) +
   theme_minimal()
+```
+Israel has the largest attachment gap, meaning that individuals from Israel have the highest emotional attachment to their country compared to that of Europe. On the other hand, Belgians have the lowest attachment gap, meaning that of all Europeans, Belgians have the smallest emotional attachment gap towards Europe/Belgium. However, all individual means from all countries show a higher emotional attachment towards ones respective country than that of Europe.
 
-by_ctry_components <- svyby(
-  ~ atchctr + atcherp,
-  ~ cntry,
+**What individual level characteristics are associated with stronger emotional attachments to one or the other?**
+```{r}
+age_means <- svyby(
+  ~ country_vs_europe,
+  ~ agea,
   ess_w,
   svymean,
   na.rm = TRUE,
+  vartype = "se",
+  drop.empty.groups = TRUE
+)|>
+  filter(!is.na(agea))
+
+ggplot(age_means, aes(x = as.numeric(agea), y = country_vs_europe)) +
+  geom_hline(yintercept = 0, linetype = 2) +
+  geom_line(color="blue") +
+  geom_point() +
+  labs(
+    title = "Weighted Mean Attachment Gap (Country − Europe) by Age",
+    x = "Age",
+    y = "Weighted Mean Attachment (Country − Europe)"
+  ) +
+  theme_minimal()
+```
+
+One possible indicator of stronger emotional attachment to Europe/one's country is age. This graph shows that as an individual's get older, the larger the gap between their emotional attachment towards their country/Europe grows. We can interpret this to mean that younger individuals have more closely-aligned attachments to their countries and Europe, while older people tend to be more attached to their countries.
+
+```{r}
+pol <- svyby(
+  ~country_vs_europe, 
+  ~polintr, 
+  ess_w, 
+  svymean, 
+  na.rm = TRUE, 
+  vartype = "se")
+
+ggplot(pol, aes(x = as.factor(polintr), y = country_vs_europe)) +
+  geom_col(fill="darkred") +
+  labs(
+    title = "Weighted Mean Attachment Gap (Country − Europe) by Interest in Politics",
+    x = "Interest in Politics", y = "Weighted Mean Attachment (Country − Europe)") +
+    scale_x_discrete(
+    labels = c(
+      "1" = "Very interested",
+      "2" = "Quite interested",
+      "3" = "Hardly interested",
+      "4" = "	Not at all interested"
+    ))
+  theme_minimal()
+```
+
+Another possible indicator of stronger emotional attachment to Europe/one's country is interest in politics. This plot shows that individuals who have lower interest in politics tend to have a larger gap between their emotional attachment towards their country and Europe (they have stronger emotional attachment to their country). On the other hand, those with greater interest in politics have a smaller gap.
+
+**How do these attitudes also relate to attitudes towards the European union?**
+```{r}
+eu_nat <- svyby(
+  ~country_vs_europe, 
+  ~vteurmmb, 
+  ess_w, 
+  svymean, 
+  na.rm = TRUE, 
+  vartype = "se")
+
+ggplot(eu_nat, aes(x = vteurmmb, y = country_vs_europe)) +
+  geom_col(fill="purple") +
+  labs(
+    title = "Weighted Mean Attachment Gap (Country − Europe) by EU Membership Desire",
+    x = "EU Membership Desire", y = "Weighted Mean Attachment (Country − Europe)"
+  ) +
+  theme_minimal()
+```
+Unsurprisingly, individuals that desire for their country to leave the EU felt greater emotional attachment towards their respective country over that of Europe. On the other hand, those that wished their country to stay in the EU saw a much smaller gap between emotional attachment towards their country/Europe. Interesting, individuals that were ineligible to vote saw the lowest gap in emotional attachment (perhaps they were too young or they are more likely to be disillusioned in their country because they cannot vote).
+
+
+**Are people in EU member countries more or less likely to hold strong national attachments?**
+```{r}
+eu_countries <- c("AT","BE","BG","HR","CY","CZ","DK","EE","FI","FR","DE","GR",
+                  "HU","IE","IT","LV","LT","LU","MT","NL","PL","PT","RO",
+                  "SK","SI","ES","SE")
+
+ess_w2 <- update(
+  ess_w,
+  is_eu = factor(ifelse(cntry %in% eu_countries, "EU member", "Non-EU"),
+                 levels = c("Non-EU","EU member")))
+
+by_eu <- svyby(
+  ~ atchctr + atcherp + country_vs_europe,
+  ~ is_eu,
+  ess_w2,
+  svymean,
+  na.rm   = TRUE,
   vartype = "se"
 )
 
-by_ctry_long <- by_ctry_components |>
-  select(cntry, atchctr, atcherp) |>
-  pivot_longer(cols = c(atchctr, atcherp),
-               names_to = "target", values_to = "mean")
+ggplot(by_eu, aes(x = is_eu, y = atchctr)) +
+  geom_col(fill = "pink") +
+  geom_hline(yintercept = 0, linetype = 2) +
+  labs(
+    title = "Weighted Mean Attachment towards One's Country by EU Membership",
+    x = "EU membership status",
+    y = "Weighted Mean Attachment towards One's Country"
+  ) +
+  theme_minimal()
 
-ggplot(by_ctry_long,
-       aes(mean, fct_reorder(cntry, mean), color = target)) +
-  geom_point() +
-  facet_wrap(~ target, ncol = 1, scales = "free_x") +
-  labs(x = "Weighted Mean", y = NULL,
-       title = "Attachment to country vs Europe, by country") +
+ggplot(by_eu, aes(x = is_eu, y = country_vs_europe)) +
+  geom_col(fill = "orange") +
+  geom_hline(yintercept = 0, linetype = 2) +
+  labs(
+    title = "Weighted Mean Attachment Gap (Country − Europe) by EU Membership",
+    x = "EU membership status",
+    y = "Weighted Mean Attachment (Country − Europe)"
+  ) +
   theme_minimal()
 
 ```
 
+Interesting, EU members are more likely to show stronger overall national attachment than non-EU members. However, in comparison to a gap in emotional attachment between one's country and Europe, non-EU members had a much larger gap. This perhaps signifies that EU members feel very strongly attached to both their country and Europe, while non-EU countries only feel strongly attached to their country (albeit at a lower rate than European countries).
+
+**Are there other aspects of people’s region of residence that correlate with national attachments?**
 ```{r}
-ess|>
-  mutate(vteurmmb = as.factor(vteurmmb))|>
-  drop_na(vteurmmb)|>
-  ggplot(aes(x=vteurmmb, weight = anweight))+
-  geom_bar()+
-  facet_wrap(~cntry, scales = 'free_y')
+dom_means <- svyby(
+  ~ country_vs_europe + atchctr, 
+  ~ domicil, 
+  ess_w,
+  svymean, 
+  na.rm = TRUE, 
+  vartype = "se"
+) |>
+  filter(!is.na(domicil))
+
+ggplot(dom_means, aes(x = factor(domicil), y = country_vs_europe)) +
+  geom_col(fill="forestgreen") +
+  geom_hline(yintercept = 0, linetype = 2) +
+  labs(title = "Weighted Mean Attachment (Country − Europe) Gap by Domicile",
+       x = "Domicile", y = "Weighted Mean Attachment (Country − Europe)") +
+  scale_x_discrete(
+    labels = c(
+      "1" = "A big city",
+      "2" = "Suburbs or outskirts of a big city",
+      "3" = "Town or small city",
+      "4" = "Country village",
+      "5" = "Farm or home in countryside"
+    )) +
+  theme_minimal()
+
+ggplot(dom_means, aes(x = factor(domicil), y = atchctr)) +
+  geom_col(fill="green") +
+  geom_hline(yintercept = 0, linetype = 2) +
+  labs(title = "Weighted Mean Attachment (Country − Europe) Gap by Domicile",
+       x = "Domicile", y = "Weighted Mean Attachment (Country − Europe)") +
+  scale_x_discrete(
+    labels = c(
+      "1" = "A big city",
+      "2" = "Suburbs or outskirts of a big city",
+      "3" = "Town or small city",
+      "4" = "Country village",
+      "5" = "Farm or home in countryside"
+    )) +
+  theme_minimal()
 ```
 
+Looking at the domicile variable (similar to urban/rural), we see that individuals that reside in more rural domiciles such as farms/country villages tend to have a higher gap in emotional attachment, meaning that they have a higher attachment towards their country than Europe on average. Those living in the suburbs have the lowest gap in emotional attachment, although they still hold strong emotional attachment to their country than Europe. Individuals that live in big cities surprisingly have higher attachment (in gap comparison) towards those that live in the suburbs. 
 
-```{r}
-eu_countries <- c("AT", "BE", "BG", "HR", "CY", "CZ", "DK", "EE", "FI", "FR", "DE", "GR", "HU", "IE", "IT", "LV", "LT", "LU", "MT", "NL", "PL", "PT", "RO", "SK", "SI", "ES", "SE")
-ess_small <- ess_small|>
-  mutate(is_eu = cntry %in% eu_countries)
-
-by_eu <- svyby(~atchchr + atcherp + country_vs_europe,
-      ~eu_countries,
-      ess_w,
-      svymean,
-      na.rm = TRUE)
-```
+If we look at just the emotional attachment towards one's country variable, we sill little variation. This indicates that the attachment towards Europe variable is the one causing most of the discrepancy in the gap/difference variable.
