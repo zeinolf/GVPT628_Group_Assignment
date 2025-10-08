@@ -18,9 +18,15 @@ library(survey)
 
 
 ```{r}
-ess<- read_dta("ESS11.dta")
+ess<- read_dta("ESS11.dta")|> 
+  zap_missing()
+
+ess<- haven::read_dta(unz("data/ESS11.zip", "ESS11.dta"))
+
 ```
 
+
+Are European people more emotionally attached “Europe” or to their individual countries of residence?
 ```{r}
 ess_small <- ess |> 
   dplyr::select(idno, atcherp, atchctr, cntry, region, vteurmmb, domicil,
@@ -32,10 +38,13 @@ ess_small <- ess |>
     region = as_factor(region),
     vteurmmb = as_factor(vteurmmb),
     domicil = as.numeric(domicil),
-    country_vs_europe = atchctr - atchctr
+    country_vs_europe = atchctr - atcherp
   ) |> 
   filter(!is.na(anweight), !is.na(psu), !is.na(stratum))
+
 ```
+
+How does this vary across countries or regions?
 
 ```{r}
 ess_w <- svydesign(
@@ -45,4 +54,71 @@ ess_w <- svydesign(
   data = ess_small,
   nest = TRUE
 )
+```
+
+```{r}
+by_ctry_gap <- svyby(
+  ~ country_vs_europe,
+  ~ cntry,
+  ess_w,
+  svymean,
+  na.rm = TRUE,
+  vartype = "se",
+  keep.names = FALSE
+)
+
+ggplot(by_ctry_gap,
+       aes(x = fct_reorder(cntry, country_vs_europe), y = country_vs_europe)) +
+  geom_col() +
+  labs(
+    x = NULL,
+    y = "Weighed Mean Difference in Country/Europe attachment",
+    title = "Attachment gap by country (ESS Round 11)"
+  ) +
+  theme_minimal()
+
+by_ctry_components <- svyby(
+  ~ atchctr + atcherp,
+  ~ cntry,
+  ess_w,
+  svymean,
+  na.rm = TRUE,
+  vartype = "se"
+)
+
+by_ctry_long <- by_ctry_components |>
+  select(cntry, atchctr, atcherp) |>
+  pivot_longer(cols = c(atchctr, atcherp),
+               names_to = "target", values_to = "mean")
+
+ggplot(by_ctry_long,
+       aes(mean, fct_reorder(cntry, mean), color = target)) +
+  geom_point() +
+  facet_wrap(~ target, ncol = 1, scales = "free_x") +
+  labs(x = "Weighted Mean", y = NULL,
+       title = "Attachment to country vs Europe, by country") +
+  theme_minimal()
+
+```
+
+```{r}
+ess|>
+  mutate(vteurmmb = as.factor(vteurmmb))|>
+  drop_na(vteurmmb)|>
+  ggplot(aes(x=vteurmmb, weight = anweight))+
+  geom_bar()+
+  facet_wrap(~cntry, scales = 'free_y')
+```
+
+
+```{r}
+eu_countries <- c("AT", "BE", "BG", "HR", "CY", "CZ", "DK", "EE", "FI", "FR", "DE", "GR", "HU", "IE", "IT", "LV", "LT", "LU", "MT", "NL", "PL", "PT", "RO", "SK", "SI", "ES", "SE")
+ess_small <- ess_small|>
+  mutate(is_eu = cntry %in% eu_countries)
+
+by_eu <- svyby(~atchchr + atcherp + country_vs_europe,
+      ~eu_countries,
+      ess_w,
+      svymean,
+      na.rm = TRUE)
 ```
