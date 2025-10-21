@@ -105,7 +105,7 @@ ggplot(age_means, aes(x = as.numeric(agea), y = country_vs_europe)) +
 
 One possible indicator of stronger emotional attachment to Europe/one's country is age. This graph shows that as an individual's get older, the larger the gap between their emotional attachment towards their country/Europe grows. We can interpret this to mean that younger individuals have more closely-aligned attachments to their countries and Europe, while older people tend to be more attached to their countries.
 
-```{r, warning=FALSE, message=FALSE, error=FALSE}
+```{r}
 pol <- svyby(
   ~country_vs_europe, 
   ~polintr, 
@@ -125,7 +125,7 @@ ggplot(pol, aes(x = as.factor(polintr), y = country_vs_europe)) +
       "2" = "Quite interested",
       "3" = "Hardly interested",
       "4" = "	Not at all interested"
-    ))
+    ))+
   theme_minimal()
 ```
 
